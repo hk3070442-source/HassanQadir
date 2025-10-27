@@ -1,0 +1,1883 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>الجدول</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    
+    <script>
+      // --- إعدادات Firebase الخاصة بك ---
+      const firebaseConfig = {
+        apiKey: "AIzaSyDY9_CkiotOoZh2aPrqJs8lF6CSxrJXsNg",
+        authDomain: "lecture-time.firebaseapp.com",
+        projectId: "lecture-time",
+        storageBucket: "lecture-time.firebasestorage.app",
+        messagingSenderId: "285657629787",
+        appId: "1:285657629787:web:669c3c8050a0b31543ab7e",
+        measurementId: "G-14TL1MJV7N"
+      };
+      
+      try {
+          firebase.initializeApp(firebaseConfig);
+          console.log("Firebase initialized successfully.");
+      } catch (e) {
+          console.error("Firebase initialization failed:", e);
+      }
+
+      const auth = firebase.auth();
+      
+      // --- تفعيل الحفظ بدون انترنت ---
+      try {
+          firebase.firestore().enablePersistence()
+              .then(() => console.log("Firestore persistence enabled."))
+              .catch((err) => {
+                  if (err.code == 'failed-precondition') {
+                      console.warn("Persistence failed, multiple tabs open?");
+                  } else if (err.code == 'unimplemented') {
+                      console.error("Persistence not supported in this browser.");
+                  } else {
+                      console.error("Persistence error:", err);
+                  }
+              });
+      } catch(e) {
+          console.error("Error enabling persistence:", e);
+      }
+      
+      const db = firebase.firestore();
+      
+    </script>
+
+    <style>
+        :root {
+            --primary-color: #A74141; --secondary-color: #4A90E2; --background-color: #f8f9fa;
+            --text-color: #333333; --white-color: #ffffff; --light-gray: #e9ecef;
+            --danger-color: #d32f2f; --success-color: #2e7d32; --success-bg: #e8f5e9;
+            --info-color: #1565c0; --info-bg: #e3f2fd; --gray-color: #616161; --gray-bg: #eeeeee;
+        }
+        body { font-family: 'Tajawal', sans-serif; margin: 0; background-color: var(--background-color); color: var(--text-color); overscroll-behavior: none; }
+        
+        /* --- كود واجهة الدخول (كما هو) --- */
+        .login-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, var(--info-bg) 0%, #f0f2f5 100%);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s ease;
+            padding: 15px; 
+            box-sizing: border-box;
+        }
+        .login-box {
+            background: var(--white-color);
+            padding: 35px 40px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 35px -10px rgba(0, 0, 0, 0.1); 
+            border: 1px solid var(--light-gray);
+            width: 100%; 
+            max-width: 420px;
+            text-align: center;
+            position: relative;
+        }
+        .login-box::before {
+            content: '🎓'; 
+            font-size: 48px;
+            display: block;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+        .login-box h2 {
+            margin-top: 0;
+            margin-bottom: 25px;
+            color: var(--text-color); 
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd; 
+            border-radius: 10px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 16px;
+            box-sizing: border-box;
+            direction: ltr;
+            text-align: right;
+            background: #f9f9f9; 
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .login-box input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(167, 65, 65, 0.1);
+            background: var(--white-color);
+        }
+        .login-box button {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary-color);
+            color: var(--white-color);
+            border: none;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 17px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .login-box button:hover {
+            background-color: #8c3434; 
+            transform: translateY(-2px); 
+        }
+        .login-box .link {
+            color: var(--secondary-color);
+            cursor: pointer;
+            font-size: 15px;
+            margin-top: 20px;
+            display: block;
+            text-decoration: none; 
+            transition: color 0.3s ease;
+        }
+        .login-box .link:hover {
+            color: #2a6bb5; 
+            text-decoration: underline; 
+        }
+        .login-error {
+            color: var(--danger-color);
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+            font-weight: 500; 
+        }
+        .app-hidden { display: none !important; }
+        .login-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        /* --- نهاية كود واجهة الدخول --- */
+
+        #admin-access-code {
+            padding: 12px; background: var(--success-bg); color: var(--success-color);
+            border: 1px solid var(--success-color); border-radius: 8px; text-align: center;
+            margin-bottom: 15px; font-size: 14px;
+        }
+        #admin-access-code strong { font-size: 16px; display: block; margin-top: 5px; }
+        body.student-mode #add-lecture-sidebar-btn,
+        body.student-mode #toggle-delete-mode,
+        body.student-mode .sidebar h2 + .sidebar-divider,
+        body.student-mode #admin-access-code,
+        body.student-mode #send-announcement-btn,
+        body.student-mode #settings-btn,
+        body.student-mode #delete-announcement-btn,
+        body.student-mode .tab-btn[data-tab="tab-announcements"] {
+             display: none; 
+        }
+        .container {
+            padding: 15px; max-width: 800px; margin: auto; transition: filter 0.3s ease; 
+        }
+        body.sidebar-open .container {
+            filter: blur(4px) brightness(0.7); 
+        }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
+        header h1 { font-size: 24px; margin: 0; }
+        .menu-btn { background: none; border: none; padding: 10px; cursor: pointer; display: flex; flex-direction: column; gap: 5px; z-index: 3000; }
+        .menu-btn .bar { width: 25px; height: 3px; background-color: var(--text-color); border-radius: 3px; transition: all 0.3s ease; }
+        .sidebar { position: fixed; top: 0; right: -300px; width: 280px; height: 100%; background-color: var(--white-color); box-shadow: -4px 0 15px rgba(0,0,0,0.1); z-index: 2500; transition: right 0.3s ease-in-out; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        .sidebar.active { right: 0; }
+        .sidebar h2 { margin-top: 40px; text-align: center; }
+        .sidebar-btn { width: 100%; padding: 12px; margin-bottom: 15px; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700; border-radius: 8px; cursor: pointer; }
+        #add-lecture-sidebar-btn { background-color: var(--primary-color); color: var(--white-color); border: none; }
+        #toggle-delete-mode { background: transparent; border: 1px solid var(--danger-color); color: var(--danger-color); }
+        #toggle-delete-mode.active { background-color: var(--danger-color); color: var(--white-color); }
+        #logout-btn { background-color: var(--info-bg); color: var(--info-color); border: 1px solid var(--info-color); margin-top: 10px; }
+        #group-filter-select { width: 100%; padding: 12px; border: 1px solid var(--light-gray); border-radius: 8px; font-size: 16px; background-color: var(--background-color); }
+        .sidebar-divider { height: 1px; background-color: var(--light-gray); margin: 20px 0; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); z-index: 2400; }
+        .overlay.active { display: block; }
+        
+        #announcement-container {
+            display: none; background: var(--info-bg); color: var(--info-color); 
+            border: 1px solid var(--info-color); padding: 15px; border-radius: 8px; 
+            margin-bottom: 20px; text-align: center; font-size: 15px; 
+            line-height: 1.6; position: relative;
+            cursor: pointer; 
+        }
+        
+        #delete-announcement-btn {
+            position: absolute; top: 5px; left: 5px; background: none; border: none;
+            font-size: 20px; color: var(--info-color); cursor: pointer; opacity: 0.7;
+        }
+        #delete-announcement-btn:hover { opacity: 1; }
+        #status-container { padding: 12px; margin: 10px 0 20px 0; border-radius: 8px; text-align: center; font-size: 16px; font-weight: 500; transition: all 0.5s ease; line-height: 1.5; }
+        #status-container.multiple { font-size: 13px; }
+        #status-container.current { background-color: var(--success-bg); color: var(--success-color); }
+        #status-container.upcoming { background-color: var(--info-bg); color: var(--info-color); }
+        #status-container.none { background-color: var(--gray-bg); color: var(--gray-color); }
+        .countdown { font-weight: 700; margin-right: 5px; }
+        .day-selector { display: flex; justify-content: space-around; padding: 15px 0; border-bottom: 1px solid var(--light-gray); margin-bottom: 20px; }
+        .day { cursor: pointer; padding: 10px; font-weight: 700; font-size: 18px; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; }
+        .day.active { background-color: var(--primary-color); color: var(--white-color); }
+        #lecture-display { display: flex; flex-direction: column; gap: 15px; }
+        .lecture-card { background-color: var(--white-color); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: flex-start; border-right: 5px solid var(--primary-color); position: relative; transition: all 0.2s ease; }
+        .lecture-card .time.invalid-time { color: var(--danger-color); font-weight: bold; }
+        
+        .delete-btn { 
+            display: none; position: absolute; 
+            top: 10px; right: 10px; 
+            background: none; border: none; font-size: 24px; 
+            color: #aaa; cursor: pointer; transition: color 0.2s; 
+        }
+        .delete-btn:hover { color: var(--danger-color); }
+        .delete-mode .lecture-card { border-right-color: var(--danger-color); animation: shake 0.5s; }
+        .delete-mode .delete-btn { display: block; }
+        
+        .edit-btn {
+            display: none; 
+            position: absolute;
+            top: 10px;
+            left: 10px; 
+            background: none; border: none;
+            font-size: 22px; 
+            color: #aaa;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .edit-btn:hover { color: var(--secondary-color); } 
+
+        body:not(.student-mode):not(.delete-mode) .edit-btn {
+            display: block;
+        }
+        .delete-mode .edit-btn {
+            display: none !important; 
+        }
+        
+        .lecture-card.canceled {
+            background-color: #fff0f0; 
+            border-right-color: var(--danger-color);
+            text-decoration: line-through; 
+            opacity: 0.7; 
+        }
+        .lecture-card.canceled .info h3,
+        .lecture-card.canceled .info p,
+        .lecture-card.canceled .time {
+            color: var(--danger-color);
+            text-decoration: line-through;
+        }
+        .lecture-card.postponed {
+            border-right-color: var(--secondary-color);
+            background-color: #f0f7ff;
+        }
+        .lecture-card.postponed .time {
+            color: var(--secondary-color);
+            font-weight: 700;
+        }
+
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); } 20%, 40%, 60%, 80% { transform: translateX(3px); } }
+        .lecture-card .info h3 { margin: 0 0 5px 0; font-size: 18px; }
+        .lecture-card .info p { margin: 0 0 5px 0; color: #777; font-size: 14px; }
+        .lecture-card .time { font-size: 16px; font-weight: 700; color: var(--primary-color); text-align: left; direction: ltr; }
+        .lecture-badge, .group-badge { color: var(--white-color); padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-top: 8px; display: inline-block; }
+        .lecture-badge { background-color: var(--secondary-color); }
+        .group-badge { background-color: #6c757d; margin-left: 5px; }
+        .empty-state { text-align: center; padding: 50px 20px; color: #999; }
+        .modal { display: none; position: fixed; z-index: 4000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); animation: fadeIn 0.3s; }
+        .modal-content { background-color: var(--background-color); margin: 10% auto; padding: 20px; border-radius: 12px; width: 90%; max-width: 500px; position: relative; overflow-y: auto; max-height: 80%; }
+        .close-btn { color: #aaa; position: absolute; top: 10px; left: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
+        #add-lecture-form h2 { text-align: center; margin-top: 0; }
+        #add-lecture-form input, #add-lecture-form select, #add-lecture-form button,
+        .settings-section input, .settings-section select, .settings-section button,
+        #announcement-modal select, #announcement-modal input { /* Applied to checkbox too */
+            width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid var(--light-gray); 
+            border-radius: 8px; font-family: 'Tajawal', sans-serif; font-size: 16px; box-sizing: border-box; 
+        }
+        #announcement-modal button {
+            width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid var(--light-gray); 
+            border-radius: 8px; font-family: 'Tajawal', sans-serif; font-size: 16px; box-sizing: border-box; 
+            background-color: var(--primary-color); color: var(--white-color); border: none; cursor: pointer; font-weight: 700;
+        }
+        /* Style for the cancel checkbox */
+        #cancel-instead-checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px; /* Slightly smaller */
+            cursor: pointer;
+            margin-top: 5px; /* Add some space above */
+            padding: 8px;
+            background-color: #fff0f0; /* Light red background */
+            border: 1px solid var(--danger-color);
+            border-radius: 8px;
+            color: var(--danger-color);
+        }
+         #cancel-instead-checkbox {
+            width: auto; /* Override default width */
+            margin-bottom: 0; /* Override default margin */
+            accent-color: var(--danger-color); /* Color the checkmark red */
+            transform: scale(1.2); /* Make it slightly bigger */
+         }
+
+        .lecture-type { text-align: center; margin-bottom: 15px; }
+        .lecture-type label { margin-left: 20px; }
+        #add-lecture-form button { background-color: var(--primary-color); color: var(--white-color); border: none; cursor: pointer; font-weight: 700; }
+        #settings-modal .modal-content { max-width: 700px; margin: 5% auto; }
+        .settings-tabs { display: flex; border-bottom: 1px solid var(--light-gray); margin-bottom: 20px; flex-wrap: wrap;} /* Added flex-wrap */
+        .tab-btn { padding: 10px 15px; cursor: pointer; background: none; border: none; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700; color: var(--gray-color); }
+        .tab-btn.active { color: var(--primary-color); border-bottom: 3px solid var(--primary-color); }
+        .settings-section { display: none; }
+        .settings-section.active { display: block; }
+        .settings-section h3 { margin-top: 0; border-bottom: 1px solid var(--light-gray); padding-bottom: 10px; }
+        .settings-list { max-height: 200px; overflow-y: auto; border: 1px solid var(--light-gray); border-radius: 8px; margin-bottom: 15px; background: var(--white-color); }
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid var(--light-gray); }
+        .list-item:last-child { border-bottom: none; }
+        .list-item span { font-size: 14px; color: var(--gray-color); }
+        .delete-item-btn { background: none; border: none; color: var(--danger-color); font-size: 18px; cursor: pointer; }
+        .settings-form { display: flex; gap: 10px; margin-bottom: 15px; }
+        .settings-form input, .settings-form select { margin-bottom: 0; }
+        .settings-form button { background-color: var(--primary-color); color: var(--white-color); border: none; font-weight: 700; width: auto; padding: 12px 20px; }
+        #add-time-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: center; }
+        #add-time-form input { direction: ltr; }
+        #add-time-form button { grid-column: 1 / -1; }
+        #filter-groups-checklist { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; background: var(--white-color); border: 1px solid var(--light-gray); padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        #filter-groups-checklist label { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+        
+        #active-announcements-list .list-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+        }
+        #active-announcements-list .list-item div {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #active-announcements-list .list-item span {
+            font-size: 12px;
+            color: var(--text-color);
+            background-color: var(--gray-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        #active-announcements-list .list-item p {
+            margin: 0;
+            font-size: 15px;
+            color: var(--gray-color);
+            width: 100%;
+        }
+
+        #full-announcement-text {
+            font-size: 17px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        #full-announcement-date {
+            text-align: left;
+            font-size: 14px;
+            color: var(--gray-color);
+            border-top: 1px solid var(--light-gray);
+            padding-top: 10px;
+            margin-top: 15px;
+        }
+
+        /* (تنسيق أزرار الراديو - كما هو) */
+        .announcement-radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: var(--white-color);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+        }
+        .announcement-radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .announcement-radio-group input[type="radio"] {
+            width: auto;
+            margin-bottom: 0;
+            appearance: none;
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--gray-color);
+            border-radius: 50%;
+            outline: none;
+            transition: 0.2s all ease;
+        }
+        .announcement-radio-group input[type="radio"]:checked {
+            border-color: var(--primary-color);
+            background-color: var(--primary-color);
+            border-width: 4px;
+        }
+        /* --- [تعديل] إخفاء زر الراديو الخاص بالإلغاء --- */
+        .announcement-radio-group label[for="type-canceled"] {
+             display: none;
+        }
+
+        @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
+        @media (max-width: 600px) {
+            .container { padding: 10px; }
+            header h1 { font-size: 22px; }
+            #status-container, .lecture-card .info p, .lecture-card .time { font-size: 14px; }
+            .lecture-card { padding: 15px; flex-direction: column; align-items: stretch; }
+            .lecture-card .time { text-align: left; margin-top: 10px; font-size: 15px; }
+            .lecture-card .info h3 { font-size: 17px; } .sidebar { width: 75%; max-width: 250px; right: -75%; }
+            .sidebar.active { right: 0; }
+            .modal-content { width: 90%; margin: 10% auto; padding: 15px; box-sizing: border-box; }
+            #add-lecture-form input, #add-lecture-form select, #add-lecture-form button { padding: 10px; font-size: 15px; }
+            .close-btn { left: 15px; font-size: 24px; } .day { font-size: 16px; width: 25px; height: 25px; }
+            .settings-form, #add-time-form { flex-direction: column; display: flex; }
+            #add-time-form { display: grid; grid-template-columns: 1fr 1fr; }
+            #add-time-form select { grid-column: 1 / -1; }
+            .settings-tabs { font-size: 14px; }
+            .tab-btn { padding: 8px 10px; }
+            #cancel-instead-checkbox-label { font-size: 14px; padding: 6px; } /* Adjust checkbox style for small screens */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="student-login-screen" class="login-screen">
+        <div class="login-box">
+            <h2>دخول الطالب</h2>
+            <form id="student-login-form">
+                <input type="text" id="access-code" placeholder="أدخل رمز الدخول" required>
+                <button type="submit">دخول</button>
+            </form>
+            <a id="show-admin-login" class="link">تسجيل دخول كأدمن</a>
+            <p id="student-login-error" class="login-error">الرمز غير صحيح.</p>
+        </div>
+    </div>
+    <div id="admin-login-screen" class="login-screen app-hidden">
+        <div class="login-box">
+            <h2>دخول الأدمن</h2>
+            <form id="admin-login-form">
+                <input type="email" id="admin-email" placeholder="البريد الإلكتروني" required>
+                <input type="password" id="admin-password" placeholder="كلمة السر" required>
+                <button type="submit">دخول</button>
+            </form>
+            <a id="show-register-screen" class="link">إنشاء حساب أدمن جديد</a>
+            <a id="show-student-login" class="link">الرجوع لدخول الطالب</a>
+            <p id="admin-login-error" class="login-error">البيانات غير صحيحة.</p>
+        </div>
+    </div>
+    <div id="register-screen" class="login-screen app-hidden">
+        <div class="login-box">
+            <h2>تسجيل أدمن جديد</h2>
+            <form id="register-form">
+                <input type="email" id="register-email" placeholder="البريد الإلكتروني" required>
+                <input type="password" id="register-password" placeholder="كلمة السر (6 حروف أو أكثر)" required>
+                <button type="submit">تسجيل</button>
+            </form>
+            <a id="back-to-admin-login" class="link">لدي حساب بالفعل</a>
+            <p id="register-error" class="login-error">حدث خطأ.</p>
+        </div>
+    </div>
+
+    <div class="sidebar app-hidden" id="sidebar">
+        <h2>الخيارات</h2>
+        <div id="admin-access-code">
+            رمز دخول طلابك:
+            <strong id="access-code-display">...</strong>
+        </div>
+        <div class="sidebar-divider"></div>
+        
+        <button id="settings-btn" class="sidebar-btn" style="background-color: var(--gray-bg); color: var(--gray-color); border: 1px solid var(--light-gray);">⚙️ الإعدادات</button>
+        <button id="add-lecture-sidebar-btn" class="sidebar-btn">إضافة محاضرة جديدة</button>
+        <button id="toggle-delete-mode" class="sidebar-btn">حذف محاضرة</button>
+        <button id="send-announcement-btn" class="sidebar-btn" style="background-color: var(--secondary-color); color: var(--white-color); border: none;">إرسال تبليغ</button>
+        <div class="sidebar-divider"></div>
+        <label for="group-filter-select" style="display:block; margin-bottom: 8px; font-weight: 500;">فلترة حسب:</label>
+        <select id="group-filter-select">
+            <option value="الكل">عرض الكل</option>
+        </select>
+        <button id="logout-btn" class="sidebar-btn">تسجيل الخروج</button>
+    </div>
+    <div class="overlay app-hidden" id="overlay"></div>
+
+    <div class="container app-hidden" id="main-container">
+        <header>
+            <h1>الجدول</h1>
+            <button class="menu-btn" id="menu-btn-main" aria-label="فتح القائمة">
+                <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+            </button>
+        </header>
+        <div id="announcement-container">
+            <button id="delete-announcement-btn" title="حذف التبليغ">&times;</button>
+            <strong style="display: block; margin-bottom: 5px;">📢 تبليغ هام:</strong>
+            <p id="announcement-display-text" style="margin: 0;"></p>
+        </div>
+        <div id="status-container"></div>
+        <nav class="day-selector" id="day-selector">
+            <div class="day" data-day="السبت">س</div><div class="day" data-day="الأحد">أ</div>
+            <div class="day" data-day="الاثنين">ن</div><div class="day" data-day="الثلاثاء">ث</div>
+            <div class="day" data-day="الأربعاء">ع</div><div class="day" data-day="الخميس">خ</div>
+            <div class="day" data-day="الجمعة">ج</div>
+        </nav>
+        <main id="lecture-display"></main>
+    </div>
+    
+    <div id="add-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="close-modal-btn">&times;</span>
+            <form id="add-lecture-form">
+                <h2>إضافة محاضرة جديدة</h2> 
+                <div class="lecture-type"><input type="radio" id="type-theory" name="lecture_type" value="نظري" checked><label for="type-theory">نظري</label><input type="radio" id="type-practical" name="lecture_type" value="عملي"><label for="type-practical">عملي</label></div>
+                <select id="lecture-group" required><option value="" disabled selected>اختر الكروب</option></select>
+                <input type="text" id="lecture-name" placeholder="اسم المادة" required>
+                <input type="text" id="lecture-doctor" placeholder="اسم الدكتور" required>
+                <select id="lecture-day" required>
+                    <option value="" disabled selected>اختر اليوم</option><option value="السبت">السبت</option><option value="الأحد">الأحد</option><option value="الاثنين">الاثنين</option><option value="الثلاثاء">الثلاثاء</option><option value="الأربعاء">الأربعاء</option><option value="الخميس">الخميس</option><option value="الجمعة">الجمعة</option>
+                </select>
+                <select id="lecture-time" required><option value="" disabled selected>اختر الوقت</option></select>
+                <input type="text" id="lecture-floor" placeholder="الطابق / القاعة" required>
+                <button type="submit">إضافة للجدول</button> 
+            </form>
+        </div>
+    </div>
+    
+    <div id="announcement-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="close-announcement-modal-btn">&times;</span>
+            <form id="announcement-form">
+                <h2>تعديل / إلغاء محاضرة</h2> <textarea id="announcement-text" placeholder="اكتب سبب التعديل أو الإلغاء هنا..." rows="4" style="width: 100%; padding: 10px; font-family: 'Tajawal', sans-serif; font-size: 16px; border-radius: 8px; border: 1px solid var(--light-gray); margin-bottom: 15px; box-sizing: border-box;"></textarea>
+                
+                 <div class="announcement-radio-group" style="display: none;"> <label for="type-canceled"> <input type="radio" id="type-canceled" name="announcement_type" value="canceled">
+                        إلغاء محاضرة (يؤثر على الجدول)
+                    </label>
+                    <label for="type-postponed"> <input type="radio" id="type-postponed" name="announcement_type" value="postponed" checked> تأجيل محاضرة (يؤثر على الجدول)
+                    </label>
+                </div>
+
+                <div id="announcement-filters" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 0; border-top: 1px solid var(--light-gray); padding-top: 15px;"> <label style="grid-column: 1 / -1; font-weight: 500;">اختر المحاضرة الأصلية:</label>
+                    <select id="announcement-day">
+                        <option value="all">كل الأيام</option>
+                        <option value="السبت">السبت</option><option value="الأحد">الأحد</option><option value="الاثنين">الاثنين</option><option value="الثلاثاء">الثلاثاء</option><option value="الأربعاء">الأربعاء</option><option value="الخميس">الخميس</option><option value="الجمعة">الجمعة</option>
+                    </select>
+                    <select id="announcement-group">
+                        <option value="all">كل الكروبات</option>
+                    </select>
+                    <select id="announcement-subject" style="grid-column: 1 / -1;">
+                        <option value="all">كل المواد</option>
+                    </select>
+                    <select id="announcement-time" style="grid-column: 1 / -1;">
+                        <option value="all">كل الأوقات</option>
+                    </select>
+                </div>
+
+                <div id="announcement-new-time-wrapper" style="display: block; margin-top: 15px; border-top: 1px solid var(--light-gray); padding-top: 15px;"> <label style="font-weight: 500;">اختر الوقت الجديد للتأجيل:</label>
+                    <select id="announcement-new-time"> <option value="" selected>اختر الوقت الجديد...</option> </select>
+                    
+                    <label id="cancel-instead-checkbox-label" for="cancel-instead-checkbox">
+                        <input type="checkbox" id="cancel-instead-checkbox">
+                        إلغاء المحاضرة المحددة (بدلاً من تأجيلها)
+                    </label>
+                </div>
+
+                <button type="submit">إرسال التعديل / الإلغاء</button> </form>
+        </div>
+    </div>
+     <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="close-settings-modal-btn">&times;</span>
+            <h2>إعدادات الجدول</h2>
+            <div class="settings-tabs">
+                <button class="tab-btn active" data-tab="tab-groups">إدارة الكروبات</button>
+                <button class="tab-btn" data-tab="tab-times">إدارة الأوقات</button>
+                <button class="tab-btn" data-tab="tab-filters">إدارة الفلاتر</button>
+                <button class="tab-btn" data-tab="tab-announcements">إدارة التبليغات</button>
+            </div>
+            <div id="tab-groups" class="settings-section active">
+                <h3>الكروبات الأساسية</h3>
+                <div class="settings-list" id="groups-list"></div>
+                <form id="add-group-form" class="settings-form">
+                    <input type="text" id="new-group-name" placeholder="اسم الكروب (مثل: A أو G1)" required>
+                    <select id="new-group-type" required>
+                        <option value="نظري">نظري</option>
+                        <option value="عملي">عملي</option>
+                    </select>
+                    <button type="submit">إضافة</button>
+                </form>
+            </div>
+            <div id="tab-times" class="settings-section">
+                <h3>أوقات المحاضرات</h3>
+                <div class="settings-list" id="times-list"></div>
+                <form id="add-time-form">
+                    <input type="time" id="new-time-start" required>
+                    <input type="time" id="new-time-end" required>
+                    <select id="new-time-type" required>
+                        <option value="نظري">نظري</option>
+                        <option value="عملي">عملي</option>
+                    </select>
+                    <button type="submit">إضافة وقت</button>
+                </form>
+            </div>
+            <div id="tab-filters" class="settings-section">
+                <h3>الفلاتر المدمجة (للطالب)</h3>
+                <div class="settings-list" id="filters-list"></div>
+                <form id="add-filter-form">
+                    <input type="text" id="new-filter-name" placeholder="اسم الفلتر (مثل: طلاب A صباحي)" required>
+                    <h3>اختر الكروبات لهذا الفلتر:</h3>
+                    <div id="filter-groups-checklist"></div>
+                    <button type="submit">إضافة فلتر</button>
+                </form>
+            </div>
+             <div id="tab-announcements" class="settings-section">
+                <h3>التبليغات الفعالة (24 ساعة)</h3>
+                <p style="font-size: 14px; color: var(--gray-color); margin-top: -10px;">سيتم حذف التبليغ من هنا تلقائياً بعد انتهاء مدته.</p>
+                <div class="settings-list" id="active-announcements-list">
+                    <div class="list-item"><p>لا توجد تبليغات فعالة حالياً...</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="full-announcement-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="close-full-announcement-btn">&times;</span>
+            <h2 style="text-align: center; margin-top: 0;">تبليغ هام</h2>
+            <p id="full-announcement-text"></p>
+            <p id="full-announcement-date"></p>
+        </div>
+    </div>
+
+    <script>
+        // --- Added check for DOMContentLoaded ---
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
+
+        function initializeApp() {
+            console.log("DOM fully loaded and parsed. Initializing app...");
+            
+            // (عناصر شاشات الدخول - كما هي)
+            const studentLoginScreen = document.getElementById('student-login-screen');
+            const adminLoginScreen = document.getElementById('admin-login-screen');
+            const registerScreen = document.getElementById('register-screen');
+            const studentLoginForm = document.getElementById('student-login-form');
+            const adminLoginForm = document.getElementById('admin-login-form');
+            const registerForm = document.getElementById('register-form');
+            const studentLoginError = document.getElementById('student-login-error');
+            const adminLoginError = document.getElementById('admin-login-error');
+            const registerError = document.getElementById('register-error');
+            
+            // (التبديل بين الشاشات - كما هو)
+            const showAdminLoginBtn = document.getElementById('show-admin-login');
+            const showStudentLoginBtn = document.getElementById('show-student-login');
+            const showRegisterScreenBtn = document.getElementById('show-register-screen');
+            const backToAdminLoginBtn = document.getElementById('back-to-admin-login');
+            if (showAdminLoginBtn) { showAdminLoginBtn.addEventListener('click', () => { if(studentLoginScreen && adminLoginScreen){ studentLoginScreen.classList.add('app-hidden'); adminLoginScreen.classList.remove('app-hidden'); } }); }
+            if (showStudentLoginBtn) { showStudentLoginBtn.addEventListener('click', () => { if(adminLoginScreen && studentLoginScreen){ adminLoginScreen.classList.add('app-hidden'); studentLoginScreen.classList.remove('app-hidden'); } }); }
+            if (showRegisterScreenBtn) { showRegisterScreenBtn.addEventListener('click', () => { if(adminLoginScreen && registerScreen){ adminLoginScreen.classList.add('app-hidden'); registerScreen.classList.remove('app-hidden'); } }); }
+            if (backToAdminLoginBtn) { backToAdminLoginBtn.addEventListener('click', () => { if(registerScreen && adminLoginScreen){ registerScreen.classList.add('app-hidden'); adminLoginScreen.classList.remove('app-hidden'); } }); }
+
+            
+            // (عناصر التطبيق الرئيسية - كما هي)
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            const mainContainer = document.getElementById('main-container');
+            const body = document.body;
+            const daySelector = document.getElementById('day-selector');
+            const groupFilterSelect = document.getElementById('group-filter-select');
+            const lectureDisplay = document.getElementById('lecture-display');
+            const form = document.getElementById('add-lecture-form');
+            const modal = document.getElementById('add-modal');
+            const showFormBtn = document.getElementById('add-lecture-sidebar-btn');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const statusContainer = document.getElementById('status-container');
+            const lectureTypeRadios = document.querySelectorAll('input[name="lecture_type"]');
+            const groupSelect = document.getElementById('lecture-group');
+            const timeSelect = document.getElementById('lecture-time');
+            const toggleDeleteBtn = document.getElementById('toggle-delete-mode');
+            const logoutBtn = document.getElementById('logout-btn');
+            const accessCodeDisplay = document.getElementById('access-code-display');
+            const announcementModal = document.getElementById('announcement-modal');
+            const closeAnnouncementModalBtn = document.getElementById('close-announcement-modal-btn');
+            const sendAnnouncementBtn = document.getElementById('send-announcement-btn');
+            const announcementForm = document.getElementById('announcement-form');
+            const announcementText = document.getElementById('announcement-text');
+            const announcementContainer = document.getElementById('announcement-container');
+            const announcementDisplayText = document.getElementById('announcement-display-text');
+            const deleteAnnouncementBtn = document.getElementById('delete-announcement-btn');
+            const settingsModal = document.getElementById('settings-modal');
+            const settingsBtn = document.getElementById('settings-btn');
+            const closeSettingsModalBtn = document.getElementById('close-settings-modal-btn');
+            const settingsTabs = document.querySelector('.settings-tabs');
+            const groupsList = document.getElementById('groups-list');
+            const addGroupForm = document.getElementById('add-group-form');
+            const timesList = document.getElementById('times-list');
+            const addTimeForm = document.getElementById('add-time-form');
+            const filtersList = document.getElementById('filters-list');
+            const addFilterForm = document.getElementById('add-filter-form');
+            const filterGroupsChecklist = document.getElementById('filter-groups-checklist');
+            const menuBtnMain = document.getElementById('menu-btn-main');
+
+            // --- [تعديل] عناصر التبليغات ---
+            const announcementFiltersDiv = document.getElementById('announcement-filters');
+            const announcementDaySelect = document.getElementById('announcement-day');
+            const announcementGroupSelect = document.getElementById('announcement-group');
+            const announcementSubjectSelect = document.getElementById('announcement-subject');
+            const announcementTimeSelect = document.getElementById('announcement-time');
+            const announcementNewTimeWrapper = document.getElementById('announcement-new-time-wrapper');
+            const announcementNewTimeSelect = document.getElementById('announcement-new-time');
+            const activeAnnouncementsList = document.getElementById('active-announcements-list'); 
+            // const announcementRadioButtons = document.querySelectorAll('input[name="announcement_type"]'); // لم نعد بحاجة لهذا
+            const cancelInsteadCheckbox = document.getElementById('cancel-instead-checkbox'); // إضافة Checkbox الإلغاء
+            
+            // (متغيرات عامة - كما هي)
+            let allBaseGroups = [];
+            let allLectureTimes = [];
+            let allCombinedFilters = [];
+            let lectures = [];
+            const jsDayNames = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+            let isDeleteMode = false;
+            let currentScheduleID = null; 
+            let unsubscribeFromLectures = null; 
+            let currentAnnouncementId = null; 
+            let currentEditingLectureId = null; 
+            let activeAnnouncements = []; 
+            
+            // (دالة جلب الإعدادات - كما هي)
+            async function loadAllSettings() {
+                if (!currentScheduleID) return;
+                allBaseGroups = [];
+                const groupsSnapshot = await db.collection("Schedules").doc(currentScheduleID).collection("Settings_Groups").get();
+                groupsSnapshot.forEach(doc => allBaseGroups.push({ id: doc.id, ...doc.data() }));
+                allLectureTimes = [];
+                const timesSnapshot = await db.collection("Schedules").doc(currentScheduleID).collection("Settings_Times").get();
+                timesSnapshot.forEach(doc => allLectureTimes.push({ id: doc.id, ...doc.data() }));
+                allCombinedFilters = [];
+                const filtersSnapshot = await db.collection("Schedules").doc(currentScheduleID).collection("Settings_Filters").get();
+                filtersSnapshot.forEach(doc => allCombinedFilters.push({ id: doc.id, ...doc.data() }));
+                populateMainFilterSelect();
+                populateSettingsUI();
+            }
+
+            // (دالة تشغيل التطبيق - كما هي)
+            async function runApp(userRole, scheduleID, accessCode = "") {
+                currentScheduleID = scheduleID;
+                if (userRole === 'student') {
+                    localStorage.setItem('scheduleID', scheduleID);
+                    localStorage.setItem('userRole', userRole);
+                } else {
+                    sessionStorage.setItem('scheduleID', scheduleID); 
+                    sessionStorage.setItem('userRole', userRole);
+                    if (accessCode) {
+                        sessionStorage.setItem('accessCode', accessCode);
+                    }
+                }
+                if (window.myAppToken && currentScheduleID) {
+                    window.saveMyFCMToken(window.myAppToken);
+                    window.myAppToken = null;
+                }
+
+                await loadAllSettings();
+
+                studentLoginScreen.classList.add('login-hidden');
+                adminLoginScreen.classList.add('login-hidden');
+                registerScreen.classList.add('login-hidden');
+                
+                if (mainContainer && sidebar && overlay) {
+                    mainContainer.classList.remove('app-hidden');
+                    sidebar.classList.remove('app-hidden');
+                    overlay.classList.remove('app-hidden');
+                    overlay.classList.remove('active');
+                } else {
+                    console.error("Main container, sidebar, or overlay not found!");
+                    return;
+                }
+                
+                if (userRole === 'student') {
+                    body.classList.add('student-mode');
+                } else {
+                    body.classList.remove('student-mode');
+                    accessCodeDisplay.textContent = accessCode; 
+                }
+                
+                if (menuBtnMain) menuBtnMain.addEventListener('click', toggleSidebar);
+                if (overlay) overlay.addEventListener('click', toggleSidebar);
+                if (daySelector) daySelector.addEventListener('click', e => { setActiveDay(e.target.closest('.day')); });
+                if (groupFilterSelect) groupFilterSelect.addEventListener('change', () => {
+                    localStorage.setItem('activeGroupFilter', groupFilterSelect.value);
+                    displayLectures(); 
+                    updateLiveStatus(); 
+                });
+                
+                if (logoutBtn) logoutBtn.addEventListener('click', () => {
+                    if (unsubscribeFromLectures) unsubscribeFromLectures();
+                    if (userRole === 'admin') {
+                        auth.signOut();
+                        sessionStorage.clear(); 
+                    } else if (userRole === 'student') {
+                        localStorage.removeItem('scheduleID');
+                        localStorage.removeItem('userRole');
+                    }
+                    location.reload(); 
+                });
+
+                if (userRole === 'admin') {
+                    // (منطق إضافة وتعديل المحاضرات - كما هي)
+                    const resetAddForm = () => {
+                        if(!form) return;
+                        form.reset();
+                        currentEditingLectureId = null;
+                        const h2 = form.querySelector('h2');
+                        const button = form.querySelector('button[type="submit"]');
+                        if(h2) h2.textContent = 'إضافة محاضرة جديدة';
+                        if(button) button.textContent = 'إضافة للجدول';
+                    };
+                    if (showFormBtn) showFormBtn.addEventListener('click', () => { updateFormOptions(); if(modal) modal.style.display = 'block'; toggleSidebar(); });
+                    if (lectureTypeRadios) lectureTypeRadios.forEach(radio => radio.addEventListener('change', updateFormOptions));
+                    if (closeModalBtn) closeModalBtn.addEventListener('click', () => { if(modal) modal.style.display = 'none'; resetAddForm(); });
+                    if (toggleDeleteBtn) toggleDeleteBtn.addEventListener('click', () => {
+                        isDeleteMode = !isDeleteMode;
+                        if(mainContainer) mainContainer.classList.toggle('delete-mode', isDeleteMode);
+                        toggleDeleteBtn.classList.toggle('active', isDeleteMode);
+                        toggleDeleteBtn.textContent = isDeleteMode ? 'تم' : 'حذف محاضرة';
+                        toggleSidebar();
+                    });
+                    if (lectureDisplay) lectureDisplay.addEventListener('click', (e) => {
+                        const target = e.target;
+                        const card = target.closest('.lecture-card');
+                        if (!card) return;
+                        const lectureId = card.dataset.id;
+                        if (target.classList.contains('delete-btn')) {
+                            if (confirm('هل أنت متأكد من حذف هذه المحاضرة؟')) {
+                                db.collection("Schedules").doc(currentScheduleID).collection("lectures").doc(lectureId).delete();
+                            }
+                        } 
+                        else if (target.classList.contains('edit-btn')) {
+                            const lectureToEdit = lectures.find(lec => lec.id === lectureId);
+                            if (!lectureToEdit) return;
+                            currentEditingLectureId = lectureId; 
+                            const h2 = form.querySelector('h2');
+                            const button = form.querySelector('button[type="submit"]');
+                            if(h2) h2.textContent = 'تعديل المحاضرة';
+                            if(button) button.textContent = 'تحديث';
+                            if(document.getElementById('lecture-name')) document.getElementById('lecture-name').value = lectureToEdit.name;
+                            if(document.getElementById('lecture-doctor')) document.getElementById('lecture-doctor').value = lectureToEdit.doctor;
+                            if(document.getElementById('lecture-day')) document.getElementById('lecture-day').value = lectureToEdit.day;
+                            if(document.getElementById('lecture-floor')) document.getElementById('lecture-floor').value = lectureToEdit.floor;
+                            const typeRadio = document.querySelector(`input[name="lecture_type"][value="${lectureToEdit.type}"]`);
+                            if (typeRadio) typeRadio.checked = true;
+                            updateFormOptions(); 
+                            if(groupSelect) groupSelect.value = lectureToEdit.group[0]; 
+                            if(timeSelect) timeSelect.value = lectureToEdit.time;
+                            if(modal) modal.style.display = 'block'; 
+                        }
+                    });
+                    if (form) form.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        const lectureData = {
+                            name: document.getElementById('lecture-name')?.value, 
+                            doctor: document.getElementById('lecture-doctor')?.value,
+                            day: document.getElementById('lecture-day')?.value, 
+                            time: document.getElementById('lecture-time')?.value,
+                            floor: document.getElementById('lecture-floor')?.value,
+                            type: document.querySelector('input[name="lecture_type"]:checked')?.value, 
+                            group: [document.getElementById('lecture-group')?.value]
+                        };
+                        let promise;
+                        if (currentEditingLectureId) {
+                            promise = db.collection("Schedules").doc(currentScheduleID).collection("lectures").doc(currentEditingLectureId).update(lectureData);
+                        } else {
+                            promise = db.collection("Schedules").doc(currentScheduleID).collection("lectures").add(lectureData);
+                        }
+                        promise.then(() => {
+                           if(modal) modal.style.display = 'none';
+                            alert(currentEditingLectureId ? 'تم تحديث المحاضرة!' : 'تمت إضافة المحاضرة بنجاح!');
+                            resetAddForm(); 
+                        }).catch(err => {
+                            console.error("Error saving lecture: ", err);
+                            alert("حدث خطأ أثناء الحفظ.");
+                        });
+                    });
+
+                    // --- [!!! START OF MODIFIED SECTION !!!] ---
+                    
+                    // --- [تعديل] منطق فتح نافذة التبليغات ---
+                    if (sendAnnouncementBtn) sendAnnouncementBtn.addEventListener('click', () => { 
+                        if(announcementForm) announcementForm.reset(); 
+                        if(cancelInsteadCheckbox) cancelInsteadCheckbox.checked = false; // Reset checkbox
+                        updateAnnouncementFilterOptions(); 
+                        // Always show filters and new time wrapper
+                        if(announcementFiltersDiv) announcementFiltersDiv.style.display = 'grid'; 
+                        if(announcementNewTimeWrapper) announcementNewTimeWrapper.style.display = 'block';
+                        
+                        if(announcementModal) announcementModal.style.display = 'block'; 
+                        toggleSidebar(); 
+                    });
+
+                    // --- [تعديل] لم نعد بحاجة لربط الحدث بأزرار الراديو ---
+                    // if (announcementRadioButtons) { ... } // Removed
+
+                    if (closeAnnouncementModalBtn) closeAnnouncementModalBtn.addEventListener('click', () => { if(announcementModal) announcementModal.style.display = 'none'; });
+                    
+                    // (ربط الأحداث بالفلاتر - كما هو)
+                    if (announcementDaySelect) announcementDaySelect.addEventListener('change', updateAnnouncementFilterOptions);
+                    if (announcementGroupSelect) announcementGroupSelect.addEventListener('change', updateAnnouncementFilterOptions);
+                    if (announcementSubjectSelect) announcementSubjectSelect.addEventListener('change', updateAnnouncementFilterOptions);
+
+                    // --- [تعديل] منطق إرسال التبليغ ---
+                    if (announcementForm) announcementForm.addEventListener('submit', (e) => {
+                        console.log("Announcement form submit event triggered.");
+                        e.preventDefault();
+                        
+                        // --- تحديد النوع بناءً على Checkbox ---
+                        const isCancelChecked = cancelInsteadCheckbox ? cancelInsteadCheckbox.checked : false;
+                        const type = isCancelChecked ? "canceled" : "postponed";
+                        // --- نهاية تحديد النوع ---
+
+                        if (!announcementText) {
+                            console.error("خطأ: عنصر النص الأساسي غير موجود.");
+                            alert("حدث خطأ في تحميل الواجهة.");
+                            return;
+                        }
+                        const text = announcementText.value.trim();
+                        if (!text) {
+                            console.log("Validation failed: Announcement text is empty.");
+                            alert('الرجاء كتابة سبب التعديل أو الإلغاء.');
+                            return;
+                        }
+                        const now = new Date();
+                        const expiryTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                        console.log(`Type determined: ${type}, Text entered: ${text}`);
+                        
+                        let announcementData = {
+                            text: text,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            expiresAt: firebase.firestore.Timestamp.fromDate(expiryTime),
+                            type: type // Set determined type
+                        };
+
+                        try { 
+                            // Always check filters as they are always visible now
+                            if (!announcementDaySelect || !announcementGroupSelect || !announcementTimeSelect || !announcementSubjectSelect) {
+                                console.error("Error: Filter select elements not found.");
+                                alert("خطأ في عناصر الفلترة.");
+                                return; 
+                            }
+                            const dayValue = announcementDaySelect.value;
+                            const groupValue = announcementGroupSelect.value;
+                            const subjectValue = announcementSubjectSelect.value;
+                            const timeValue = announcementTimeSelect.value;
+                            
+                            if (!dayValue || !groupValue || !timeValue || !subjectValue) {
+                                 console.error("Error: One or more filter values are empty/invalid.");
+                                 alert("خطأ: يرجى التأكد من اختيار قيم للفلاتر.");
+                                 return;
+                            }
+
+                            announcementData.day = dayValue;
+                            announcementData.group = groupValue;
+                            announcementData.subject = subjectValue;
+                            announcementData.time = timeValue;
+                            console.log(`Filter values added - Day: ${announcementData.day}, Group: ${announcementData.group}, Subject: ${announcementData.subject}, Time: ${announcementData.time}`);
+                            
+                            // Check for newTime only if it's NOT a cancel action
+                            if (type === 'postponed') { 
+                                if (!announcementNewTimeSelect) {
+                                    console.error("Error: New time select element not found.");
+                                    alert("خطأ في عنصر الوقت الجديد.");
+                                    return; 
+                                }
+                                const newTimeValue = announcementNewTimeSelect.value;
+                                if (!newTimeValue) { // New time is required for postpone
+                                    console.log("Validation failed: New time not selected for postpone.");
+                                    alert('الرجاء اختيار الوقت الجديد للتأجيل، أو تحديد خانة الإلغاء.');
+                                    return; 
+                                }
+                                announcementData.newTime = newTimeValue;
+                                console.log(`New time value added: ${announcementData.newTime}`);
+                            }
+                            // If type is 'canceled', we don't need 'newTime'
+                            
+                        } catch (elementError) {
+                             console.error("Error accessing announcement form elements:", elementError);
+                             alert("حدث خطأ أثناء قراءة بيانات الفورم.");
+                             return; 
+                        }
+
+                        console.log("Current Schedule ID:", currentScheduleID);
+                        console.log("Final announcement data before sending:", JSON.stringify(announcementData));
+
+                        if (!currentScheduleID) {
+                             console.error("Cannot send announcement: currentScheduleID is null or undefined.");
+                             alert("خطأ: لم يتم تحديد الجدول الحالي. الرجاء إعادة تحميل الصفحة.");
+                             return; 
+                        }
+                        const announcementsCollection = db.collection("Schedules").doc(currentScheduleID).collection("Announcements");
+                        console.log("Firestore collection path:", announcementsCollection.path);
+
+                        announcementsCollection.add(announcementData)
+                        .then((docRef) => {
+                            console.log("Announcement successfully added with ID: ", docRef.id);
+                            alert(type === 'canceled' ? 'تم إرسال الإلغاء!' : 'تم إرسال التأجيل!');
+                            if (announcementForm) announcementForm.reset();
+                            if(cancelInsteadCheckbox) cancelInsteadCheckbox.checked = false; // Reset checkbox
+                            if(announcementModal) announcementModal.style.display = 'none';
+                        })
+                        .catch((err) => {
+                            console.error("Firestore Error Code:", err.code); 
+                            console.error("Firestore Error Message:", err.message); 
+                            console.error("Error sending announcement to Firestore: ", err);
+                            let userMessage = "حدث خطأ أثناء إرسال التبليغ. الرجاء التأكد من اتصالك بالإنترنت";
+                            if (err.code === 'permission-denied') { userMessage += " (خطأ صلاحيات)"; }
+                             else if (err.code === 'unauthenticated') { userMessage += " (لم يتم تسجيل الدخول)"; }
+                             else if (err.code === 'invalid-argument') { userMessage += " (بيانات غير صالحة)"; } 
+                            userMessage += " أو مراجعة الـ Console.";
+                            alert(userMessage);
+                        });
+                        console.log("Firestore add() call initiated.");
+                    });
+                    // --- [!!! END OF MODIFIED SECTION !!!] ---
+
+                    // (باقي إعدادات الأدمن - كما هي)
+                    if (deleteAnnouncementBtn) deleteAnnouncementBtn.addEventListener('click', () => {
+                        if (currentAnnouncementId && confirm('هل أنت متأكد من حذف هذا التبليغ؟')) {
+                            db.collection("Schedules").doc(currentScheduleID).collection("Announcements").doc(currentAnnouncementId).delete();
+                        }
+                    });
+                    if (settingsBtn) settingsBtn.addEventListener('click', () => { if(settingsModal) settingsModal.style.display = 'block'; toggleSidebar(); });
+                    if (closeSettingsModalBtn) closeSettingsModalBtn.addEventListener('click', () => { if(settingsModal) settingsModal.style.display = 'none'; });
+                    if (settingsTabs) settingsTabs.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('tab-btn')) {
+                            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                            document.querySelectorAll('.settings-section').forEach(sec => sec.classList.remove('active'));
+                            e.target.classList.add('active');
+                            const tabId = e.target.dataset.tab;
+                            const tabElement = document.getElementById(tabId);
+                            if (tabElement) tabElement.classList.add('active');
+                        }
+                    });
+                   if (activeAnnouncementsList) activeAnnouncementsList.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('delete-item-btn')) {
+                            const annId = e.target.dataset.id;
+                            if (annId && confirm('هل أنت متأكد من حذف هذا التبليغ؟ سيعود الجدول لوضعه الأصلي.')) {
+                                db.collection("Schedules").doc(currentScheduleID).collection("Announcements").doc(annId).delete();
+                            }
+                        }
+                    });
+                    if (addGroupForm) addGroupForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        const name = document.getElementById('new-group-name')?.value.trim();
+                        const type = document.getElementById('new-group-type')?.value;
+                        if (name && type) {
+                            db.collection("Schedules").doc(currentScheduleID).collection("Settings_Groups").add({ name, type })
+                                .then(() => { addGroupForm.reset(); loadAllSettings(); });
+                        }
+                    });
+                    if (groupsList) groupsList.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('delete-item-btn')) {
+                            db.collection("Schedules").doc(currentScheduleID).collection("Settings_Groups").doc(e.target.dataset.id).delete()
+                                .then(loadAllSettings);
+                        }
+                    });
+                    if (addTimeForm) addTimeForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        const start = document.getElementById('new-time-start')?.value;
+                        const end = document.getElementById('new-time-end')?.value;
+                        const type = document.getElementById('new-time-type')?.value;
+                        if (start && end && type) {
+                            const timeRange = `${start} - ${end}`;
+                            db.collection("Schedules").doc(currentScheduleID).collection("Settings_Times").add({ timeRange, type })
+                                .then(() => { addTimeForm.reset(); loadAllSettings(); });
+                        }
+                    });
+                    if (timesList) timesList.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('delete-item-btn')) {
+                            db.collection("Schedules").doc(currentScheduleID).collection("Settings_Times").doc(e.target.dataset.id).delete()
+                                .then(loadAllSettings);
+                        }
+                    });
+                    if (addFilterForm) addFilterForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        const filterName = document.getElementById('new-filter-name')?.value.trim();
+                        const checkedGroups = [];
+                        document.querySelectorAll('#filter-groups-checklist input:checked').forEach(input => {
+                            checkedGroups.push(input.value);
+                        });
+                        if (filterName && checkedGroups.length > 0) {
+                            db.collection("Schedules").doc(currentScheduleID).collection("Settings_Filters").add({ filterName, groups: checkedGroups })
+                                .then(() => { addFilterForm.reset(); loadAllSettings(); });
+                        }
+                    });
+                    if (filtersList) filtersList.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('delete-item-btn')) {
+                            db.collection("Schedules").doc(currentScheduleID).collection("Settings_Filters").doc(e.target.dataset.id).delete()
+                                .then(loadAllSettings);
+                        }
+                    });
+                } // --- نهاية (if userRole === 'admin') ---
+                
+                // (إغلاق النوافذ المنبثقة - كما هو)
+                const fullAnnModal = document.getElementById('full-announcement-modal');
+                const closeFullAnnBtn = document.getElementById('close-full-announcement-btn');
+                window.addEventListener('click', (e) => {
+                    if (e.target == modal) {
+                        if(modal) modal.style.display = 'none';
+                        if (userRole === 'admin') {
+                            const resetAddForm = () => {
+                                if(!form) return;
+                                form.reset();
+                                currentEditingLectureId = null;
+                                const h2 = form.querySelector('h2');
+                                const button = form.querySelector('button[type="submit"]');
+                                if(h2) h2.textContent = 'إضافة محاضرة جديدة';
+                                if(button) button.textContent = 'إضافة للجدول';
+                            };
+                            resetAddForm();
+                        }
+                    }
+                    if (e.target == announcementModal) if(announcementModal) announcementModal.style.display = 'none';
+                    if (e.target == settingsModal) if(settingsModal) settingsModal.style.display = 'none';
+                    if (e.target == fullAnnModal) if(fullAnnModal) fullAnnModal.style.display = 'none'; 
+                });
+                if (closeFullAnnBtn) closeFullAnnBtn.addEventListener('click', () => { if(fullAnnModal) fullAnnModal.style.display = 'none'; });
+                
+                // (بدء تشغيل العرض - كما هو)
+                initializeView(); 
+                setInterval(updateLiveStatus, 1000); 
+                subscribeToLectures(currentScheduleID);
+                subscribeToAnnouncements(currentScheduleID); 
+
+            } // --- نهاية دالة runApp ---
+
+            // (دوال مساعدة - كما هي)
+            const toggleSidebar = () => {
+               if(sidebar && overlay && body){
+                   sidebar.classList.toggle('active'); 
+                   overlay.classList.toggle('active'); 
+                   body.classList.toggle('sidebar-open');
+               } else {
+                   console.error("Sidebar, overlay, or body element not found in toggleSidebar!");
+               }
+            };
+            const convertTo12HourFormat = (time24) => {
+                if (!time24 || !time24.includes(':')) return ''; 
+                const [hours, minutes] = time24.split(':'); 
+                let H = parseInt(hours, 10);
+                if(isNaN(H) || H < 0 || H > 23) return time24;
+                const ampm = H >= 12 ? 'م' : 'ص'; 
+                H = H % 12; H = H ? H : 12; 
+                const H_str = H < 10 ? '0' + H : H;
+                const M_str = minutes.padStart(2, '0');
+                return `${H_str}:${M_str} ${ampm}`;
+            };
+            function populateSettingsUI() {
+                if(groupsList) {
+                    groupsList.innerHTML = '';
+                    allBaseGroups.sort((a, b) => a.name.localeCompare(b.name)).forEach(group => {
+                        groupsList.innerHTML += `<div class="list-item"><div>${group.name} <span>(${group.type})</span></div><button class="delete-item-btn" data-id="${group.id}">&times;</button></div>`;
+                    });
+                }
+                 if(timesList) {
+                    timesList.innerHTML = '';
+                    allLectureTimes.sort((a, b) => a.timeRange.localeCompare(b.timeRange)).forEach(time => {
+                        const [start, end] = time.timeRange.split(' - ');
+                        const displayTime = `${convertTo12HourFormat(start)} - ${convertTo12HourFormat(end)}`;
+                        timesList.innerHTML += `<div class="list-item"><div>${displayTime} <span>(${time.type})</span></div><button class="delete-item-btn" data-id="${time.id}">&times;</button></div>`;
+                    });
+                }
+                if(filtersList){
+                    filtersList.innerHTML = '';
+                    allCombinedFilters.sort((a, b) => a.filterName.localeCompare(b.filterName)).forEach(filter => {
+                        filtersList.innerHTML += `<div class="list-item"><div>${filter.filterName} <span>(${filter.groups.join(', ')})</span></div><button class="delete-item-btn" data-id="${filter.id}">&times;</button></div>`;
+                    });
+                 }
+                if(filterGroupsChecklist){
+                    filterGroupsChecklist.innerHTML = '';
+                    allBaseGroups.forEach(group => {
+                        filterGroupsChecklist.innerHTML += `<label><input type="checkbox" value="${group.name}"> ${group.name}</label>`;
+                    });
+                }
+            }
+            function populateMainFilterSelect() {
+                if (!groupFilterSelect) return;
+                groupFilterSelect.innerHTML = '<option value="الكل">عرض الكل</option>';
+                allCombinedFilters.forEach(filter => {
+                    const opt = document.createElement('option');
+                    opt.value = filter.filterName;
+                    opt.textContent = filter.filterName;
+                    groupFilterSelect.appendChild(opt);
+                });
+            }
+            const updateFormOptions = () => {
+                const selectedTypeRadio = document.querySelector('input[name="lecture_type"]:checked');
+                if (!selectedTypeRadio || !timeSelect || !groupSelect) return;
+                
+                const selectedType = selectedTypeRadio.value;
+                timeSelect.innerHTML = '<option value="" disabled selected>اختر الوقت</option>';
+                allLectureTimes.filter(time => time.type === selectedType).sort((a, b) => a.timeRange.localeCompare(b.timeRange))
+                    .forEach(time => {
+                        const opt = document.createElement('option');
+                        opt.value = time.timeRange;
+                        const [startTime24, endTime24] = time.timeRange.split(' - ');
+                        opt.textContent = `${convertTo12HourFormat(startTime24)} - ${convertTo12HourFormat(endTime24)}`;
+                        timeSelect.appendChild(opt);
+                    });
+                groupSelect.innerHTML = '<option value="" disabled selected>اختر الكروب</option>';
+                allBaseGroups.filter(group => group.type === selectedType).sort((a, b) => a.name.localeCompare(b.name))
+                    .forEach(group => {
+                        const opt = document.createElement('option');
+                        opt.value = group.name;
+                        opt.textContent = group.name;
+                        groupSelect.appendChild(opt);
+                    });
+            };
+            const robustFilter = (lectureList, activeGroupFilterName) => {
+                if (!Array.isArray(lectureList)) return [];
+                if (activeGroupFilterName === 'الكل') { return lectureList; }
+                const selectedFilter = allCombinedFilters.find(f => f.filterName === activeGroupFilterName);
+                if (!selectedFilter) { return []; }
+                const targetGroups = selectedFilter.groups; 
+                return lectureList.filter(lec => (Array.isArray(lec.group) && lec.group.some(g => targetGroups.includes(g))));
+            };
+
+            // (دالة الفلاتر المتغيرة - كما هي)
+            function updateAnnouncementFilterOptions() {
+                 if (!announcementDaySelect || !announcementGroupSelect || !announcementSubjectSelect || !announcementTimeSelect || !announcementNewTimeSelect) return;
+
+                const currentDay = announcementDaySelect.value;
+                const currentGroup = announcementGroupSelect.value;
+                const currentSubject = announcementSubjectSelect.value;
+                
+                let dayFilteredLectures = lectures;
+                if (currentDay !== 'all') {
+                    dayFilteredLectures = dayFilteredLectures.filter(lec => lec.day === currentDay);
+                }
+                
+                const availableGroups = [...new Set(dayFilteredLectures.flatMap(lec => lec.group))].sort();
+                announcementGroupSelect.innerHTML = '<option value="all">كل الكروبات</option>';
+                let isCurrentGroupValid = false;
+                availableGroups.forEach(group => {
+                    if (group === currentGroup) isCurrentGroupValid = true;
+                    announcementGroupSelect.innerHTML += `<option value="${group}" ${group === currentGroup ? 'selected' : ''}>${group}</option>`;
+                });
+                const effectiveGroup = isCurrentGroupValid ? currentGroup : 'all';
+                if (!isCurrentGroupValid) announcementGroupSelect.value = 'all';
+
+                let groupFilteredLectures = dayFilteredLectures;
+                if (effectiveGroup !== 'all') {
+                    groupFilteredLectures = groupFilteredLectures.filter(lec => lec.group && lec.group.includes(effectiveGroup));
+                }
+
+                const availableSubjects = [...new Set(groupFilteredLectures.map(lec => lec.name))].sort();
+                announcementSubjectSelect.innerHTML = '<option value="all">كل المواد</option>';
+                let isCurrentSubjectValid = false;
+                availableSubjects.forEach(name => {
+                    if (name === currentSubject) isCurrentSubjectValid = true;
+                    announcementSubjectSelect.innerHTML += `<option value="${name}" ${name === currentSubject ? 'selected' : ''}>${name}</option>`;
+                });
+                const effectiveSubject = isCurrentSubjectValid ? currentSubject : 'all';
+                 if (!isCurrentSubjectValid) announcementSubjectSelect.value = 'all';
+
+                let subjectFilteredLectures = groupFilteredLectures;
+                if (effectiveSubject !== 'all') {
+                    subjectFilteredLectures = subjectFilteredLectures.filter(lec => lec.name === effectiveSubject);
+                }
+                
+                const availableTimes = [...new Set(subjectFilteredLectures.map(lec => lec.time))].sort();
+                announcementTimeSelect.innerHTML = '<option value="all">كل الأوقات</option>';
+                availableTimes.forEach(time => {
+                    if (!time) return;
+                    if (time.includes(' - ')) {
+                        const [startTime24, endTime24] = time.split(' - ');
+                        const displayTime = `${convertTo12HourFormat(startTime24)} - ${convertTo12HourFormat(endTime24)}`;
+                        announcementTimeSelect.innerHTML += `<option value="${time}">${displayTime}</option>`;
+                    }
+                });
+
+                 // Populate NEW Time if not already populated
+                 // Check if it only has the placeholder and the "select new time" option
+                if (announcementNewTimeSelect.options.length <= 1 || 
+                    (announcementNewTimeSelect.options.length === 2 && announcementNewTimeSelect.options[0].disabled)) {
+                    announcementNewTimeSelect.innerHTML = '<option value="" selected>اختر الوقت الجديد...</option>'; // Keep the empty default
+                    allLectureTimes.sort((a, b) => a.timeRange.localeCompare(b.timeRange)).forEach(time => {
+                        const [startTime24, endTime24] = time.timeRange.split(' - ');
+                        const displayTime = `${convertTo12HourFormat(startTime24)} - ${convertTo12HourFormat(endTime24)}`;
+                        const optionHTML = `<option value="${time.timeRange}">${displayTime} (${time.type})</option>`;
+                        announcementNewTimeSelect.innerHTML += optionHTML; 
+                    });
+                }
+            }
+
+            function populateActiveAnnouncementsList() {
+                if (!activeAnnouncementsList) return; 
+                if (activeAnnouncements.length === 0) {
+                    activeAnnouncementsList.innerHTML = '<div class="list-item"><p>لا توجد تبليغات فعالة حالياً...</p></div>';
+                    return;
+                }
+                activeAnnouncementsList.innerHTML = '';
+                // الفرز يتم الآن في subscribeToAnnouncements
+                activeAnnouncements.forEach(ann => {
+                    let typeText = 'عام'; // Will not be shown as general is not sent this way
+                    if (ann.type === 'canceled') typeText = 'إلغاء';
+                    if (ann.type === 'postponed') typeText = 'تأجيل';
+                    const item = document.createElement('div');
+                    item.className = 'list-item';
+                    item.innerHTML = `
+                        <div>
+                            <span>${typeText}</span>
+                            <button class="delete-item-btn" data-id="${ann.id}">&times;</button>
+                        </div>
+                        <p>${ann.text ? ann.text.substring(0, 100) + (ann.text.length > 100 ? '...' : '') : 'لا يوجد نص'}</p>
+                    `;
+                    activeAnnouncementsList.appendChild(item);
+                });
+            }
+            
+            // --- [!!! START OF MODIFIED SECTION !!!] ---
+            // (المنطق الجديد موجود في الدالتين التاليتين)
+
+            // --- [إصلاح] دالة updateLiveStatus (لإعطاء الأولوية للإلغاء + تصحيح عرض الحالة) ---
+            const updateLiveStatus = () => {
+                if (!statusContainer || !groupFilterSelect) return;
+                const now = new Date(); 
+                const todayName = jsDayNames[now.getDay()]; 
+                const activeGroup = groupFilterSelect.value;
+                let dayLectures = lectures.filter(lec => lec.day === todayName);
+                let lecturesToShowOriginal = robustFilter(dayLectures, activeGroup); 
+                
+                let modifiedLectures = [];
+                lecturesToShowOriginal.forEach(lec => { 
+                    let modifiedLec = JSON.parse(JSON.stringify(lec)); 
+                    console.log(`[DEBUG] Status Check: ${modifiedLec.name} at ${modifiedLec.time}`);
+
+                    // الخطوة 1: ابحث عن أحدث تبليغ "إلغاء" مطابق أولاً
+                    let canceledAnn = activeAnnouncements.find(ann => {
+                        if (ann.type !== 'canceled') return false;
+                        const dayMatch = (ann.day === 'all' || ann.day === modifiedLec.day);
+                        const timeMatch = (ann.time === 'all' || ann.time === modifiedLec.time);
+                        const groupMatch = (ann.group === 'all' || (modifiedLec.group && modifiedLec.group.includes(ann.group)));
+                        const subjectMatch = (!ann.subject || ann.subject === 'all' || ann.subject === modifiedLec.name);
+                        console.log(`[DEBUG]   Status Compare CANCEL ann (${ann.id?.substring(0,5)}): day=${dayMatch}, time=${timeMatch}, group=${groupMatch}, subject=${subjectMatch}`);
+                        return dayMatch && timeMatch && groupMatch && subjectMatch;
+                    });
+
+                    if (canceledAnn) {
+                        console.log(`[DEBUG]   Status Lecture CANCELED by ann (${canceledAnn.id?.substring(0,5)})`);
+                    } else {
+                        // الخطوة 2: إذا لم تكن ملغاة، ابحث عن أحدث تبليغ "تأجيل"
+                        let postponedAnn = activeAnnouncements.find(ann => {
+                            if (ann.type !== 'postponed' || !ann.newTime) return false;
+                            const dayMatch = (ann.day === 'all' || ann.day === modifiedLec.day);
+                            const timeMatch = (ann.time === 'all' || ann.time === modifiedLec.time);
+                            const groupMatch = (ann.group === 'all' || (modifiedLec.group && modifiedLec.group.includes(ann.group)));
+                            const subjectMatch = (!ann.subject || ann.subject === 'all' || ann.subject === modifiedLec.name);
+                            console.log(`[DEBUG]   Status Compare POSTPONE ann (${ann.id?.substring(0,5)}): day=${dayMatch}, time=${timeMatch}, group=${groupMatch}, subject=${subjectMatch}`);
+                            return dayMatch && timeMatch && groupMatch && subjectMatch;
+                        });
+
+                        if (postponedAnn) {
+                            console.log(`[DEBUG]   Status Lecture POSTPONED by ann (${postponedAnn.id?.substring(0,5)}) to ${postponedAnn.newTime}`);
+                            modifiedLec.time = postponedAnn.newTime; 
+                        } else {
+                             console.log("[DEBUG]   Status No matching cancel or postpone found.");
+                        }
+                        
+                        modifiedLectures.push(modifiedLec); 
+                    }
+                });
+                
+                let lecturesToShow = modifiedLectures; 
+
+                // (باقي الدالة كما هي)
+                lecturesToShow.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+                let currentLectures = [], nextLectures = [], nextLectureTime = null;
+                for (const lec of lecturesToShow) {
+                    if (!lec.time || !lec.time.includes(' - ')) continue;
+                    const timeParts = lec.time.split(' - ');
+                    if(timeParts.length !== 2) continue;
+                    const startTimeStr = timeParts[0]; const endTimeStr = timeParts[1];
+                    const startHoursMinutes = startTimeStr.split(':'); const endHoursMinutes = endTimeStr.split(':');
+                    if(startHoursMinutes.length !== 2 || endHoursMinutes.length !== 2) continue;
+                    const startTime = new Date(); 
+                    try { startTime.setHours(parseInt(startHoursMinutes[0], 10), parseInt(startHoursMinutes[1], 10), 0, 0); } 
+                    catch(e) { console.warn("Invalid start time format:", startTimeStr); continue; }
+                    const endTime = new Date(); 
+                     try { endTime.setHours(parseInt(endHoursMinutes[0], 10), parseInt(endHoursMinutes[1], 10), 0, 0); } 
+                     catch(e) { console.warn("Invalid end time format:", endTimeStr); continue; }
+                    if (endTime <= startTime) { endTime.setDate(endTime.getDate() + 1); } 
+                    const duration = endTime.getTime() - startTime.getTime();
+                    
+                    // --- [!!! التعديل الأول: تم تغيير المدة إلى الثلث !!!] ---
+                    const effectiveEndTime = new Date(startTime.getTime() + (duration / 3));
+
+                    if (now >= startTime && now < effectiveEndTime) { currentLectures.push(lec); } 
+                    if (startTime > now) {
+                        if (!nextLectureTime || startTime < nextLectureTime) { 
+                            nextLectureTime = startTime; 
+                            nextLectures = [lec]; 
+                        } else if (startTime.getTime() === nextLectureTime.getTime()) { 
+                            nextLectures.push(lec); 
+                        }
+                    }
+                }
+                statusContainer.classList.toggle('multiple', currentLectures.length > 1 || nextLectures.length > 1);
+                if (currentLectures.length > 0) {
+                    statusContainer.className = 'current'; 
+                    const names = currentLectures.map(l => `${l.name} (${Array.isArray(l.group) ? l.group.join('+') : ''})`).join(', ');
+                    statusContainer.innerHTML = `<strong>محاضرة حالية:</strong> ${names}`;
+                } else if (nextLectures.length > 0 && nextLectureTime) {
+                    statusContainer.className = 'upcoming'; 
+                    const diff = nextLectureTime - now; 
+                    const hours = Math.floor(diff / 3600000); 
+                    const minutes = Math.floor((diff % 3600000) / 60000); 
+                    const seconds = Math.floor((diff % 60000) / 1000);
+                    let countdownText = ''; 
+                    if (hours > 0) countdownText += `${hours} س و `; 
+                    countdownText += `${minutes} د و ${seconds} ث`;
+                    const names = nextLectures.map(l => `${l.name} (${Array.isArray(l.group) ? l.group.join('+') : ''})`).join(', ');
+                    statusContainer.innerHTML = `<strong>محاضرة قادمة:</strong> ${names} <span class="countdown">(بعد ${countdownText})</span>`;
+                } else {
+                    statusContainer.className = 'none';
+                    const selectedOption = groupFilterSelect.options[groupFilterSelect.selectedIndex];
+                    statusContainer.innerHTML = activeGroup === 'الكل' ? 'لا توجد محاضرات متبقية لهذا اليوم.' : `لا توجد محاضرات قادمة لـ: ${selectedOption ? selectedOption.text : ''}`;
+                }
+            };
+
+            // --- [إصلاح] دالة displayLectures (لإعطاء الأولوية للإلغاء + تصحيح العرض) ---
+            const displayLectures = () => {
+                if(!lectureDisplay) return;
+                lectureDisplay.innerHTML = ''; 
+                // const activeDayElement = document.querySelector('.day.active'); // تم نقله لأسفل
+                // const activeDay = activeDayElement?.dataset.day; // تم نقله لأسفل
+                const activeGroup = groupFilterSelect?.value;
+                const activeDayElement = document.querySelector('.day.active');
+                const activeDay = activeDayElement?.dataset.day;
+                if (!activeDay) return; 
+                let dayLectures = lectures.filter(lec => lec.day === activeDay);
+                let filteredLectures = robustFilter(dayLectures, activeGroup);
+                
+                let modifiedLectures = [];
+                filteredLectures.forEach(lec => {
+                    let modifiedLec = JSON.parse(JSON.stringify(lec)); 
+                    modifiedLec.isCanceled = false;
+                    modifiedLec.isPostponed = false;
+                    modifiedLec.originalTime = null;
+                    modifiedLec.cancellationText = null;
+                    console.log(`[DEBUG] Display Check: ${modifiedLec.name} at ${modifiedLec.time}`); // LOGGING
+
+                    // الخطوة 1: ابحث عن أحدث تبليغ "إلغاء" مطابق أولاً
+                    let canceledAnn = activeAnnouncements.find(ann => {
+                        if (ann.type !== 'canceled') return false;
+                        const dayMatch = (ann.day === 'all' || ann.day === modifiedLec.day);
+                        const timeMatch = (ann.time === 'all' || ann.time === modifiedLec.time);
+                        const groupMatch = (ann.group === 'all' || (modifiedLec.group && modifiedLec.group.includes(ann.group)));
+                        const subjectMatch = (!ann.subject || ann.subject === 'all' || ann.subject === modifiedLec.name);
+                        console.log(`[DEBUG]   Display Compare CANCEL ann (${ann.id?.substring(0,5)}): day=${dayMatch}, time=${timeMatch}, group=${groupMatch}, subject=${subjectMatch}`);
+                        return dayMatch && timeMatch && groupMatch && subjectMatch;
+                    });
+
+                    if (canceledAnn) {
+                         console.log(`[DEBUG]   Display Lecture CANCELED by ann (${canceledAnn.id?.substring(0,5)})`); // LOGGING
+                        modifiedLec.isCanceled = true;
+                        modifiedLec.cancellationText = canceledAnn.text;
+                    } else {
+                        // الخطوة 2: إذا لم تكن ملغاة، ابحث عن أحدث تبليغ "تأجيل"
+                        let postponedAnn = activeAnnouncements.find(ann => {
+                            if (ann.type !== 'postponed' || !ann.newTime) return false;
+                            const dayMatch = (ann.day === 'all' || ann.day === modifiedLec.day);
+                            const timeMatch = (ann.time === 'all' || ann.time === modifiedLec.time);
+                            const groupMatch = (ann.group === 'all' || (modifiedLec.group && modifiedLec.group.includes(ann.group)));
+                            const subjectMatch = (!ann.subject || ann.subject === 'all' || ann.subject === modifiedLec.name);
+                             console.log(`[DEBUG]   Display Compare POSTPONE ann (${ann.id?.substring(0,5)}): day=${dayMatch}, time=${timeMatch}, group=${groupMatch}, subject=${subjectMatch}`);
+                            return dayMatch && timeMatch && groupMatch && subjectMatch;
+                        });
+
+                        if (postponedAnn) {
+                             console.log(`[DEBUG]   Display Lecture POSTPONED by ann (${postponedAnn.id?.substring(0,5)}) to ${postponedAnn.newTime}`); // LOGGING
+                            modifiedLec.isPostponed = true;
+                            modifiedLec.originalTime = modifiedLec.time; 
+                            modifiedLec.time = postponedAnn.newTime; 
+                            modifiedLec.cancellationText = postponedAnn.text; 
+                        } else {
+                              console.log("[DEBUG]   Display No matching cancel or postpone found."); // LOGGING
+                        }
+                    }
+                    
+                    modifiedLectures.push(modifiedLec); 
+                });
+                
+                // --- [!!! التعديل الثاني والثالث: الفرز الديناميكي للمحاضرات !!!] ---
+                
+                const now = new Date();
+                const todayName = jsDayNames[now.getDay()];
+                // (تم تعريف activeDay و activeDayElement في الأعلى)
+
+                // دالة مساعدة لتحديد حالة المحاضرة (1 = حالية, 2 = قادمة, 3 = ماضية)
+                // نستخدم الوقت الكامل للمحاضرة هنا لتحديد "الماضية"
+                const getLectureStatus = (lecTime, now) => {
+                    if (!lecTime || !lecTime.includes(' - ')) return 3; // اعتبرها ماضية إذا كان الوقت غير صالح
+                    const [startTimeStr, endTimeStr] = lecTime.split(' - ');
+                    if (!startTimeStr || !endTimeStr) return 3;
+                    
+                    const start = new Date(); 
+                    const end = new Date();
+                    
+                    try {
+                        const [sH, sM] = startTimeStr.split(':');
+                        const [eH, eM] = endTimeStr.split(':');
+                        start.setHours(parseInt(sH, 10), parseInt(sM, 10), 0, 0);
+                        end.setHours(parseInt(eH, 10), parseInt(eM, 10), 0, 0);
+                    } catch(e) { return 3; }
+
+                    if (end <= start) { end.setDate(end.getDate() + 1); }
+
+                    if (now >= start && now < end) return 1; // 1. حالية
+                    if (now < start) return 2; // 2. قادمة
+                    return 3; // 3. ماضية
+                };
+                
+                // منطق الفرز الجديد
+                modifiedLectures.sort((a, b) => {
+                    // إذا كنا لا نعرض جدول "اليوم"، قم بالفرز العادي حسب الوقت فقط
+                    if (activeDay !== todayName) {
+                        return (a.time || "").localeCompare(b.time || "");
+                    }
+
+                    // إذا كنا نعرض جدول "اليوم"، طبق الفرز الديناميكي
+                    const statusA = getLectureStatus(a.time, now);
+                    const statusB = getLectureStatus(b.time, now);
+
+                    if (statusA !== statusB) {
+                        return statusA - statusB; // الفرز حسب الحالة (1, 2, 3)
+                    }
+                    
+                    // إذا كانت المحاضرتان من نفس الحالة (مثلاً كلاهما "قادمة")
+                    // قم بفرزها حسب وقت البداية
+                    return (a.time || "").localeCompare(b.time || "");
+                });
+                // --- [!!! نهاية تعديل الفرز الديناميكي !!!] ---
+
+                if (modifiedLectures.length === 0) { 
+                    lectureDisplay.innerHTML = `<div class="empty-state"><p>لا توجد محاضرات تطابق الفلترة.</p></div>`; 
+                } else {
+                    // (باقي الدالة كما هي)
+                    modifiedLectures.forEach(lec => {
+                        const card = document.createElement('div'); 
+                        card.className = 'lecture-card';
+                        card.dataset.id = lec.id; 
+                        let originalTime12 = null;
+                        if (lec.isCanceled) { card.classList.add('canceled'); }
+                        if (lec.isPostponed) {
+                            card.classList.add('postponed');
+                            if(lec.originalTime) {
+                                const timeParts = lec.originalTime.split(' - ');
+                                if(timeParts.length > 0){ originalTime12 = convertTo12HourFormat(timeParts[0]); }
+                            }
+                        }
+                        let timeClass = 'time'; 
+                        let displayTime = 'وقت غير صالح';
+                        if (lec.time && lec.time.includes(' - ')) {
+                             const timeParts = lec.time.split(' - ');
+                             if(timeParts.length === 2){
+                                const startTimeStr = timeParts[0]; const endTimeStr = timeParts[1];
+                                displayTime = `${convertTo12HourFormat(startTimeStr)} - ${convertTo12HourFormat(endTimeStr)}`;
+                                const start = new Date(); const end = new Date();
+                                let validTime = true;
+                                try {
+                                    const shm = startTimeStr.split(':'); const ehm = endTimeStr.split(':');
+                                    start.setHours(parseInt(shm[0],10), parseInt(shm[1],10),0,0);
+                                    end.setHours(parseInt(ehm[0],10), parseInt(ehm[1],10),0,0);
+                                } catch(e){ validTime = false; }
+                                if (!validTime) { timeClass += ' invalid-time'; } 
+                             }
+                        }
+                        card.innerHTML = `
+                            <button class="delete-btn" title="حذف المحاضرة">&times;</button>
+                            <button class="edit-btn" title="تعديل المحاضرة">✏️</button>
+                            <div class="info">
+                                <h3>${lec.name || 'غير مسمى'}</h3>
+                                <p>الدكتور: ${lec.doctor || 'غير محدد'}</p>
+                                <p>المكان: ${lec.floor || 'غير محدد'}</p>
+                                ${lec.isCanceled ? `<p style="color:var(--danger-color); font-weight:bold; text-decoration: none; font-size: 13px;">ملغاة: ${lec.cancellationText || ''}</p>` : ''}
+                                ${lec.isPostponed ? `<p style="color:var(--secondary-color); font-weight:bold; font-size: 13px;">مؤجلة (كانت ${originalTime12 || '...'}): ${lec.cancellationText || ''}</p>` : ''}
+                                <div>
+                                    <span class="lecture-badge">${lec.type || ''}</span>
+                                    <span class="group-badge">${Array.isArray(lec.group) ? lec.group.join('+') : ''}</span>
+                                </div>
+                            </div>
+                            <div class="${timeClass}">${displayTime}</div>
+                        `;
+                        lectureDisplay.appendChild(card);
+                    });
+                }
+            };
+            
+            // --- [!!! END OF MODIFIED SECTION !!!] ---
+
+            // (دوال مساعدة - كما هي)
+            const setActiveDay = (dayElement) => {
+                if (!dayElement) return;
+                document.querySelectorAll('.day.active').forEach(d => d.classList.remove('active'));
+                dayElement.classList.add('active'); displayLectures();
+            };
+            const initializeView = () => {
+                const savedFilter = localStorage.getItem('activeGroupFilter') || 'الكل'; 
+                if(groupFilterSelect) groupFilterSelect.value = savedFilter;
+                const todayName = jsDayNames[new Date().getDay()]; 
+                const todayElement = document.querySelector(`.day[data-day="${todayName}"]`);
+                setActiveDay(todayElement || document.querySelector('.day'));
+            };
+
+            // (منطق المصادقة - مع إضافة console.log)
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    console.log("Auth state changed: User is signed in.", user.email);
+                    findScheduleByAdmin(user.email);
+                } else {
+                    console.log("Auth state changed: User is signed out.");
+                    const savedScheduleID = localStorage.getItem('scheduleID');
+                    const savedUserRole = localStorage.getItem('userRole');
+                    if (savedScheduleID && savedUserRole === 'student') {
+                        console.log("Found student session, running app...");
+                        runApp('student', savedScheduleID);
+                    } else {
+                       console.log("No session found, showing student login screen.");
+                       if(studentLoginScreen && !studentLoginScreen.classList.contains('login-hidden')) { 
+                           studentLoginScreen.classList.remove('app-hidden');
+                       } else if (studentLoginScreen) {
+                            studentLoginScreen.classList.remove('app-hidden');
+                       } else {
+                           console.error("Student login screen not found!");
+                       }
+                    }
+                }
+            });
+            if (studentLoginForm) studentLoginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if(studentLoginError) studentLoginError.style.display = 'none';
+                const codeInput = document.getElementById('access-code');
+                const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
+                if(!code) return;
+                db.collection("Schedules").where("accessCode", "==", code).get()
+                    .then((querySnapshot) => {
+                        if (querySnapshot.empty) {
+                           if(studentLoginError) {
+                                studentLoginError.textContent = "الرمز غير صحيح.";
+                                studentLoginError.style.display = 'block';
+                            }
+                        } else {
+                            const scheduleDoc = querySnapshot.docs[0];
+                            runApp('student', scheduleDoc.id);
+                        }
+                    });
+            });
+            if (adminLoginForm) adminLoginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if(adminLoginError) adminLoginError.style.display = 'none';
+                 const emailInput = document.getElementById('admin-email');
+                 const passInput = document.getElementById('admin-password');
+                const email = emailInput ? emailInput.value : '';
+                const pass = passInput ? passInput.value : '';
+                if(!email || !pass) return;
+                console.log("Attempting admin sign in..."); // LOGGING
+                auth.signInWithEmailAndPassword(email, pass)
+                     .then(() => console.log("Admin sign in successful.")) // LOGGING
+                    .catch((error) => {
+                        console.error("Admin sign in failed:", error); // LOGGING
+                        if(adminLoginError){
+                            adminLoginError.textContent = "البريد أو كلمة السر غير صحيحة.";
+                            adminLoginError.style.display = 'block';
+                        }
+                    });
+            });
+            if (registerForm) registerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if(registerError) registerError.style.display = 'none';
+                 const emailInput = document.getElementById('register-email');
+                 const passInput = document.getElementById('register-password');
+                const email = emailInput ? emailInput.value : '';
+                const pass = passInput ? passInput.value : '';
+                 if(!email || !pass) return;
+                auth.createUserWithEmailAndPassword(email, pass)
+                    .then((userCredential) => {
+                        const newAccessCode = generateAccessCode();
+                        db.collection("Schedules").add({
+                            adminEmail: userCredential.user.email,
+                            accessCode: newAccessCode,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    })
+                    .catch((error) => {
+                        if(registerError){
+                            if (error.code == 'auth/weak-password') { registerError.textContent = "كلمة السر ضعيفة (يجب أن تكون 6 حروف أو أكثر)."; }
+                            else if (error.code == 'auth/email-already-in-use') { registerError.textContent = "هذا البريد مستخدم بالفعل."; }
+                            else { registerError.textContent = "حدث خطأ غير متوقع."; }
+                            registerError.style.display = 'block';
+                        }
+                    });
+            });
+            function findScheduleByAdmin(adminEmail) {
+                console.log("Finding schedule for admin:", adminEmail); // LOGGING
+                db.collection("Schedules").where("adminEmail", "==", adminEmail).get()
+                    .then((querySnapshot) => {
+                        if (querySnapshot.empty) {
+                             console.error("No schedule found for admin:", adminEmail); // LOGGING
+                            alert("خطأ: لم يتم العثور على جدول لهذا الأدمن.");
+                            auth.signOut();
+                        } else {
+                            const scheduleDoc = querySnapshot.docs[0];
+                             console.log("Schedule found:", scheduleDoc.id); // LOGGING
+                            runApp('admin', scheduleDoc.id, scheduleDoc.data().accessCode);
+                        }
+                    }).catch(error => { 
+                        console.error("Error finding schedule by admin:", error);
+                        alert("حدث خطأ أثناء البحث عن جدول الأدمن.");
+                        auth.signOut(); // Sign out on error
+                        if(studentLoginScreen) { // Show login screen on error
+                             studentLoginScreen.classList.remove('app-hidden');
+                             studentLoginScreen.classList.remove('login-hidden'); // Ensure it's fully visible
+                        }
+                    });
+            }
+            function generateAccessCode() {
+                return Math.random().toString(36).substring(2, 8).toUpperCase();
+            }
+
+            // (دالة استقبال الإشعارات - كما هي)
+            window.saveMyFCMToken = function(token) {
+                if (currentScheduleID && token) {
+                    const tokensRef = db.collection("Schedules").doc(currentScheduleID).collection("Tokens");
+                    tokensRef.where("token", "==", token).get()
+                        .then((snapshot) => {
+                            if (snapshot.empty) {
+                                tokensRef.add({ token: token, platform: "android", addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                            }
+                        });
+                } else {
+                    window.myAppToken = token;
+                }
+            };
+
+            // (دالة جلب المحاضرات - كما هي)
+            function subscribeToLectures(scheduleID) {
+                if (unsubscribeFromLectures) unsubscribeFromLectures();
+                unsubscribeFromLectures = db.collection("Schedules").doc(scheduleID).collection("lectures")
+                    .onSnapshot({ includeMetadataChanges: true }, (querySnapshot) => {
+                        console.log("[DEBUG] Lectures received:", querySnapshot.docs.length); // LOGGING
+                        lectures = [];
+                        querySnapshot.forEach((doc) => {
+                            lectures.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        // We call display functions after announcements are sorted
+                        // displayLectures(); 
+                        // updateLiveStatus();
+                        
+                        if (document.body.classList.contains('student-mode') === false) {
+                            updateAnnouncementFilterOptions(); 
+                        }
+
+                        if (querySnapshot.metadata.fromCache) {
+                            console.log("Lecture data came from cache (Offline)");
+                        } else {
+                            console.log("Lecture data came from server (Online)");
+                        }
+                        
+                    }, (error) => console.error("Error getting lectures: ", error));
+            }
+
+            // --- [!!! START OF MODIFIED SECTION !!!] ---
+            
+            // --- [إصلاح] دالة جلب التبليغات (مع إعادة ترتيب بسيط وفرز) ---
+            function subscribeToAnnouncements(scheduleID) {
+                const fullAnnModal = document.getElementById('full-announcement-modal');
+                const fullAnnText = document.getElementById('full-announcement-text');
+                const fullAnnDate = document.getElementById('full-announcement-date');
+
+                db.collection("Schedules").doc(scheduleID).collection("Announcements")
+                    .where("expiresAt", ">", new Date()) 
+                    .orderBy("expiresAt", "desc") // Required for the query
+                    .onSnapshot({ includeMetadataChanges: true }, (querySnapshot) => {
+                        console.log("[DEBUG] Announcements received:", querySnapshot.docs.length); 
+                        activeAnnouncements = []; 
+                        let latestDisplayableAnnouncement = null; 
+                        
+                        querySnapshot.forEach(doc => {
+                            const ann = doc.data();
+                            ann.id = doc.id;
+                            console.log(`[DEBUG]   Ann received: ID=${ann.id?.substring(0,5)}, Type=${ann.type}, Created=${ann.createdAt?.toDate()}`);
+                            activeAnnouncements.push(ann); 
+                            
+                            if (ann.type === 'general' && ann.createdAt) { // Only track general for top banner
+                                if (!latestDisplayableAnnouncement || (ann.createdAt?.seconds > latestDisplayableAnnouncement.createdAt?.seconds)) {
+                                    latestDisplayableAnnouncement = ann;
+                                    currentAnnouncementId = doc.id; 
+                                }
+                            }
+                        });
+
+                        // Sort announcements by creation date (newest first) AFTER fetching
+                        activeAnnouncements.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                        console.log("[DEBUG] Announcements sorted by createdAt (desc)."); 
+                        
+                        // (باقي الكود كما هو)
+                        if (latestDisplayableAnnouncement && announcementContainer) {
+                            const text = latestDisplayableAnnouncement.text || '';
+                            if (announcementDisplayText) {
+                                if (text.length > 100) {
+                                    announcementDisplayText.innerText = text.substring(0, 100) + "... (اضغط للقراءة)";
+                                } else {
+                                    announcementDisplayText.innerText = text;
+                                }
+                            }
+                            announcementContainer.style.display = 'block';
+                            if (fullAnnText) fullAnnText.innerText = text; 
+                            if (fullAnnDate) {
+                                if (latestDisplayableAnnouncement.createdAt) {
+                                    fullAnnDate.innerText = "تاريخ الإرسال: " + latestDisplayableAnnouncement.createdAt.toDate().toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' });
+                                } else {
+                                    fullAnnDate.innerText = "تاريخ الإrsال: غير متاح"; 
+                                }
+                            }
+                            announcementContainer.onclick = () => {
+                                if(fullAnnModal) fullAnnModal.style.display = 'block';
+                            };
+                        } else if(announcementContainer) {
+                            announcementContainer.style.display = 'none';
+                            announcementContainer.onclick = null; 
+                            currentAnnouncementId = null;
+                        }
+
+                        if (document.body && document.body.classList.contains('student-mode') === false) {
+                            populateActiveAnnouncementsList();
+                        }
+                        
+                        // Call display functions AFTER announcements are sorted
+                        console.log("[DEBUG] Calling displayLectures() after announcements update."); 
+                        displayLectures();
+                         console.log("[DEBUG] Calling updateLiveStatus() after announcements update."); 
+                        updateLiveStatus(); 
+
+                    }, (error) => {
+                        console.error("Error getting announcements: ", error);
+                        // Do not show index error alert to user
+                    });
+            }
+            // --- [!!! END OF MODIFIED SECTION !!!] ---
+
+        } // --- نهاية دالة initializeApp ---
+    </script>
+</body>
+</html>
