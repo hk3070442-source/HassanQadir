@@ -1,23 +1,21 @@
 // اسم الـ Cache (الذاكرة المؤقتة) مع رقم إصدار
-const CACHE_NAME = 'lecture-table-cache-v3'; // <-- تم تغيير الإصدار إلى v3
+const CACHE_NAME = 'lecture-table-cache-v4'; // <-- تم تغيير الإصدار إلى v4
 
 // الملفات الأساسية التي نريد تخزينها
+// سنخزن الملفات المحلية فقط لضمان نجاح التثبيت
 const URLS_TO_CACHE = [
   '/', 
-  'bbb.html',
-  'https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js',
-  'https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js',
-  'https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js',
-  'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap'
+  'index.html'
 ];
 
 // 1. حدث التثبيت (Install)
 self.addEventListener('install', (event) => {
-  console.log('Service Worker: Installing v3...');
+  console.log('Service Worker: Installing v4...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Service Worker: Caching App Shell v3...');
+        console.log('Service Worker: Caching App Shell v4...');
+        // هذا سيخزن index.html و / فقط
         return cache.addAll(URLS_TO_CACHE);
       })
       .then(() => self.skipWaiting())
@@ -26,12 +24,13 @@ self.addEventListener('install', (event) => {
 
 // 2. حدث التفعيل (Activate)
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker: Activating v3...');
+  console.log('Service Worker: Activating v4...');
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
+          // سيحذف v3 وكل ما هو قديم
           if (cacheWhitelist.indexOf(cacheName) === -1) {
             console.log('Service Worker: Deleting old cache', cacheName);
             return caches.delete(cacheName);
@@ -42,31 +41,50 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 3. حدث جلب البيانات (Fetch) - الكود المُعدل والمهم
+// 3. حدث جلب البيانات (Fetch) - هذا هو الكود المُعدل
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') {
     return;
   }
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // --- (1) موجود في الكاش ---
-        if (response) {
-          return response;
-        }
-        // --- (2) غير موجود في الكاش ---
-        return fetch(event.request)
-          .then((networkResponse) => {
-            return networkResponse;
-          })
-          .catch(() => {
-            // --- (3) فشل الإنترنت (أوفلاين) ---
-            console.warn('Fetch failed from network and not in cache:', event.request.url);
-            return new Response('', {
-              status: 503,
-              statusText: 'Service Unavailable'
+
+  const url = new URL(event.request.url);
+
+  // استراتيجية "Cache first" للملفات الأساسية
+  // استراتيجية "Network first" للملفات الخارجية
+  const isCoreFile = url.pathname.endsWith('bbb.html') || url.pathname.endsWith('/');
+  const isExternalAsset = url.hostname.includes('firebase') || url.hostname.includes('fonts');
+
+  if (isCoreFile) {
+    // 1. للملفات الأساسية (bbb.html): ابحث في الكاش أولاً
+    event.respondWith(
+      caches.match(event.request)
+        .then((response) => {
+          // إذا وجدناه، أرجعه (هذا ما سيحدث عندما تكون أوفلاين)
+          // إذا لم نجده (أول زيارة بعد مسح الكاش)، اذهب للشبكة
+          return response || fetch(event.request);
+        })
+    );
+  } else if (isExternalAsset) {
+    // 2. للملفات الخارجية (Firebase, Fonts): اذهب للشبكة أولاً
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          // إذا نجح الاتصال، قم بتخزين نسخة في الكاش للمستقبل
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME)
+            .then((cache) => {
+              cache.put(event.request, responseToCache);
             });
-          });
-      })
-  );
+          return networkResponse;
+        })
+        .catch(() => {
+          // إذا فشل الاتصال (أوفلاين)، ابحث في الكاش
+          // (هذا سيعمل في الزيارات اللاحقة عندما تكون أوفلاين)
+          return caches.match(event.request);
+        })
+    );
+  } else {
+    // 3. لأي شيء آخر، اتبع السلوك الافتراضي
+    return;
+  }
 });
